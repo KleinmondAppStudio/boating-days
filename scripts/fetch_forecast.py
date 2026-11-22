@@ -19,6 +19,8 @@ Only the Python standard library is used, so nothing needs installing.
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -38,10 +40,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "data", "forecast.json")
 
 
-def get_json(url, headers=None, timeout=30):
-    req = urllib.request.Request(url, headers={"User-Agent": "KleinmondAppStudio-BoatingDays/1.0", **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+def get_json(url, headers=None, timeout=25, attempts=3):
+    """Fetch JSON, trying up to 3 times with a pause, and say clearly what went wrong."""
+    last = None
+    for n in range(1, attempts + 1):
+        req = urllib.request.Request(url, headers={"User-Agent": "KleinmondAppStudio-BoatingDays/1.0", **(headers or {})})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "replace")[:200]
+            last = f"HTTP {e.code}: {body}"
+        except Exception as e:
+            last = f"{type(e).__name__}: {e}"
+        print(f"  attempt {n} failed for {url.split('?')[0]} -> {last}", file=sys.stderr)
+        time.sleep(5 * n)
+    raise RuntimeError(last)
 
 
 def weather(spot):
@@ -76,7 +90,7 @@ def tides(spot, key):
         "lat": spot["lat"], "lng": spot["lng"],
         "start": start.isoformat(), "end": end.isoformat(),
     })
-    data = get_json("https://api.stormglass.io/v2/tide/extremes/point?" + q, headers={"Authorization": key})
+    data = get_json("https://api.stormglass.io/v2/tide/extremes/point?" + q, headers={"Authorization": key}, attempts=1)
     out = []
     for e in data.get("data", []):
         t = datetime.fromisoformat(e["time"].replace("Z", "+00:00")).astimezone(SAST)
@@ -160,6 +174,8 @@ def main():
 
     if all(s.get("hours") is None for s in result["spots"]):
         print("No weather data at all - keeping the old file.", file=sys.stderr)
+        for p in problems:
+            print("  " + p, file=sys.stderr)
         sys.exit(1)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
