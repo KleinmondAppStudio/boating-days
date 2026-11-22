@@ -66,7 +66,7 @@ def weather(spot):
         "latitude": spot["lat"],
         "longitude": spot["lng"],
         "hourly": "temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,"
-                  "precipitation_probability,visibility",
+                  "precipitation_probability,visibility,weather_code",
         "daily": "sunrise,sunset",
         "wind_speed_unit": "kmh",
         "timezone": TZ_NAME,
@@ -106,7 +106,7 @@ def marine(spot):
     q = urllib.parse.urlencode({
         "latitude": spot["lat"],
         "longitude": spot["lng"],
-        "hourly": "wave_height,swell_wave_height,swell_wave_period",
+        "hourly": "wave_height,swell_wave_height,swell_wave_period,swell_wave_direction",
         "timezone": TZ_NAME,
         "forecast_days": DAYS,
     })
@@ -170,6 +170,7 @@ def main():
                 "dir": round_list(h["wind_direction_10m"], 0),
                 "rain": round_list(h["precipitation_probability"], 0),
                 "visKm": [None if v is None else round(v / 1000, 1) for v in h["visibility"]],
+                "code": h.get("weather_code"),
             }
             entry["sun"] = {"date": w["daily"]["time"], "rise": w["daily"]["sunrise"], "set": w["daily"]["sunset"]}
             entry["source"] = "Open-Meteo"
@@ -191,6 +192,7 @@ def main():
                 "wave": round_list(m["wave_height"], 1),
                 "swell": round_list(m["swell_wave_height"], 1),
                 "period": round_list(m["swell_wave_period"], 0),
+                "swellDir": round_list(m.get("swell_wave_direction") or [], 0),
             }
         except Exception as e:
             problems.append(f"marine {spot['id']}: {e}")
