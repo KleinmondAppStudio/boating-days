@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boating Days – Kleinmond App Studio</title>
+<meta name="description" content="Free boating forecast for Kleinmond, Pringle Bay, Gordon's Bay and Hermanus. Green days, orange days and red days for the week ahead. Made in Kleinmond.">
+<meta property="og:title" content="Boating Days – free boating forecast for the Overberg">
+<meta property="og:description" content="Which days this week are good for the boat? Kleinmond, Pringle Bay, Gordon's Bay and Hermanus. Free, made in Kleinmond.">
+<meta property="og:image" content="https://kleinmondappstudio.github.io/boating-days/assets/cover.jpg">
+<meta name="theme-color" content="#0b1f4b">
+<link rel="icon" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<style>
+  :root{
+    --navy:#0b1f4b; --navy2:#13306b; --teal:#0e9aa7; --orange:#f26b1d;
+    --sand:#f6f3ee; --card:#ffffff; --ink:#1b2333; --muted:#55607a;
+    --green:#1f8a3b; --green-bg:#e4f5e8; --amber:#b85c00; --amber-bg:#fff1dc;
+    --red:#b3261e; --red-bg:#fde7e5; --line:#dfe3ea;
+  }
+  *{box-sizing:border-box}
+  html{font-size:19px}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--sand);color:var(--ink);line-height:1.5}
+  a{color:var(--navy2)}
+  .wrap{max-width:860px;margin:0 auto;padding:0 16px}
+
+  /* Header */
+  header{background:var(--navy);color:#fff}
+  .cover{display:block;width:100%;height:auto;max-height:330px;object-fit:cover;object-position:center}
+  .brand{display:flex;align-items:center;gap:14px;padding:14px 0 18px}
+  .brand img{width:72px;height:72px;margin-top:-46px;border-radius:50%;border:4px solid var(--navy);background:var(--navy);flex:none}
+  .brand h1{margin:0;font-size:1.7rem;line-height:1.15}
+  .brand p{margin:2px 0 0;color:#cfe3ff;font-size:.95rem}
+
+  main{padding:18px 0 40px}
+  section{margin:0 0 22px}
+  h2{font-size:1.25rem;margin:0 0 10px;color:var(--navy)}
+  .note{background:#fff;border-left:6px solid var(--teal);padding:12px 14px;border-radius:10px;margin-bottom:18px}
+  .note.warn{border-color:var(--orange);background:#fff7f0}
+
+  /* Choice buttons */
+  .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .choice{font:inherit;font-weight:600;padding:16px 12px;border-radius:14px;border:3px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;min-height:64px}
+  .choice[aria-pressed="true"]{border-color:var(--navy);background:var(--navy);color:#fff}
+  .choice:focus-visible,.btn:focus-visible,.day:focus-visible{outline:4px solid var(--orange);outline-offset:2px}
+
+  /* Days */
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.9rem;color:var(--muted);margin-bottom:10px}
+  .days{display:grid;gap:10px}
+  .day{width:100%;text-align:left;font:inherit;color:inherit;border:0;border-left:12px solid;border-radius:14px;background:var(--card);padding:14px 16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+  .day.green{border-color:var(--green)} .day.orange{border-color:#e08a00} .day.red{border-color:var(--red)}
+  .day .when{font-weight:700;font-size:1.1rem}
+  .day .why{grid-column:1 / -1;color:var(--muted);font-size:.95rem}
+  .badge{font-weight:700;padding:6px 12px;border-radius:999px;white-space:nowrap}
+  .green .badge{background:var(--green-bg);color:var(--green)}
+  .orange .badge{background:var(--amber-bg);color:var(--amber)}
+  .red .badge{background:var(--red-bg);color:var(--red)}
+  .star{color:var(--orange)}
+  .detail{background:#fff;border-radius:0 0 14px 14px;margin:-8px 0 4px;padding:14px 16px 16px;border:1px solid var(--line);border-top:0}
+  .detail table{width:100%;border-collapse:collapse;font-size:.95rem}
+  .detail th,.detail td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line)}
+  .detail th{color:var(--muted);font-weight:600}
+  .detail td.bad{color:var(--red);font-weight:700}
+  .facts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;color:var(--muted);font-size:.95rem}
+
+  /* Limits */
+  details.limits{background:#fff;border-radius:14px;padding:12px 16px;border:1px solid var(--line)}
+  details.limits summary{font-weight:700;cursor:pointer;color:var(--navy);font-size:1.05rem}
+  .lim{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .stepper{display:flex;align-items:center;gap:8px}
+  .btn{font:inherit;font-weight:700;min-width:52px;min-height:48px;border-radius:12px;border:2px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer}
+  .btn.solid{background:var(--navy);color:#fff;padding:0 16px}
+  .val{min-width:84px;text-align:center;font-weight:700}
+
+  /* Safety + footer */
+  .safety{background:var(--navy);color:#fff;border-radius:14px;padding:16px}
+  .safety h2{color:#fff}
+  .safety a{color:#fff;font-weight:700}
+  .safety ul{margin:6px 0 0;padding-left:20px}
+  footer{background:var(--navy);color:#cfe3ff;padding:22px 0;font-size:.95rem}
+  footer a{color:#fff;font-weight:600}
+  .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .pill{display:inline-block;padding:10px 16px;border-radius:999px;background:var(--orange);color:#fff !important;text-decoration:none;font-weight:700}
+  .pill.alt{background:var(--teal)}
+  .updated{font-size:.9rem;color:var(--muted)}
+  @media (max-width:520px){html{font-size:18px}.brand img{width:62px;height:62px;margin-top:-38px}.brand h1{font-size:1.45rem}}
+</style>
+</head>
+<body>
+<header>
+  <img class="cover" src="assets/cover.jpg" alt="Kleinmond App Studio banner: Kleinmond mountains, lagoon and sea">
+  <div class="wrap brand">
+    <img src="assets/logo.png" alt="Kleinmond App Studio logo">
+    <div>
+      <h1>Boating Days</h1>
+      <p>Which days this week are good for the boat? Free, from Kleinmond App Studio.</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="notice"></div>
+
+  <section aria-labelledby="h-where">
+    <h2 id="h-where">1. Where are you launching?</h2>
+    <div class="choices" id="spots" role="group" aria-labelledby="h-where"></div>
+  </section>
+
+  <section aria-labelledby="h-who">
+    <h2 id="h-who">2. What kind of trip?</h2>
+    <div class="choices" id="profiles" role="group" aria-labelledby="h-who"></div>
+  </section>
+
+  <section aria-labelledby="h-week">
+    <h2 id="h-week">3. Your week</h2>
+    <div class="legend">
+      <span>✅ <b>Good day</b> – within your limits</span>
+      <span>⚠️ <b>Check first</b> – close to your limits</span>
+      <span>❌ <b>Stay home</b> – outside your limits</span>
+      <span class="star">★ calmest day</span>
+    </div>
+    <p class="updated" id="updated"></p>
+    <div class="days" id="days"><p>Loading the forecast…</p></div>
+    <p class="updated">Tap a day to see the hours, waves and tides.</p>
+  </section>
+
+  <section>
+    <details class="limits" id="limitsBox">
+      <summary>⚙️ My limits (tap to change)</summary>
+      <p class="updated">Set the limits you are comfortable with. They are saved on this phone or computer only.</p>
+      <div id="limits"></div>
+      <p><button class="btn solid" id="reset" type="button">Back to the standard limits</button></p>
+    </details>
+  </section>
+
+  <section class="safety" aria-labelledby="h-safe">
+    <h2 id="h-safe">Stay safe</h2>
+    <p>This is a forecast, not a promise. Always look at the sea yourself before launching, wear your life jacket, and tell someone when you'll be back.</p>
+    <ul>
+      <li>NSRI Kleinmond (Station 42): <a href="tel:0636992765">063 699 2765</a></li>
+      <li>NSRI Gordon's Bay (Station 9): <a href="tel:0724488482">072 448 8482</a></li>
+      <li>NSRI Hermanus (Station 17): <a href="tel:0829905967">082 990 5967</a></li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Made with care in Kleinmond by <b>Kleinmond App Studio</b>. Forecast data from Open-Meteo (open-meteo.com); tides from Stormglass. Updated every 3 hours.</p>
+    <div class="links">
+      <a class="pill" href="https://www.facebook.com/KleinmondAppStudio">Follow us on Facebook</a>
+      <a class="pill alt" href="https://play.google.com/store/apps/developer?id=Mossie">More of our apps on Google Play</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  const SPOT_LABELS = {kleinmond:"Kleinmond", maasbaai:"Pringle Bay (Maasbaai)", gordonsbay:"Gordon's Bay", hermanus:"Hermanus"};
+
+  const DEFAULT_PROFILES = {
+    family:{name:"Boat – family", maxWind:18, maxGust:25, maxRain:10, minVis:2, maxWave:1.5, start:6, end:12},
+    solo:  {name:"Boat – solo",   maxWind:22, maxGust:32, maxRain:30, minVis:2, maxWave:2.0, start:6, end:12},
+    kayak: {name:"Kayak",         maxWind:25, maxGust:35, maxRain:40, minVis:1, maxWave:1.5, start:6, end:11}
+  };
+
+  const LIMIT_FIELDS = [
+    {k:"maxWind", label:"Highest wind", unit:"km/h", step:1, min:5, max:60},
+    {k:"maxGust", label:"Highest gusts", unit:"km/h", step:1, min:5, max:80},
+    {k:"maxRain", label:"Highest chance of rain", unit:"%", step:5, min:0, max:100},
+    {k:"maxWave", label:"Highest waves", unit:"m", step:0.1, min:0.3, max:5},
+    {k:"minVis",  label:"Lowest visibility (mist)", unit:"km", step:0.5, min:0.5, max:20},
+    {k:"start",   label:"Trip starts", unit:":00", step:1, min:4, max:16},
+    {k:"end",     label:"Trip ends", unit:":00", step:1, min:6, max:20}
+  ];
+
+  // Small, safe wrappers around browser storage (it can be switched off).
+  function load(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
+  function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
+  let profiles = load("bd.profiles", null) || JSON.parse(JSON.stringify(DEFAULT_PROFILES));
+  let spotId = load("bd.spot", "kleinmond");
+  let profileId = load("bd.profile", "family");
+  let data = null;
+  let openDay = null;
+
+  const $ = id => document.getElementById(id);
+  const DAYNAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function fmtDate(iso){ // "2026-11-22"
+    const [y,m,d] = iso.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff = Math.round((dt - today)/86400000);
+    const name = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : DAYNAMES[dt.getDay()];
+    return name + " " + d + " " + MONTHS[m-1];
+  }
+  function hhmm(iso){ return iso ? iso.slice(11,16) : "–"; }
+  function fmtStamp(iso){ const [d,t]=iso.split("T"); return fmtDate(d) + " at " + t.slice(0,5); }
+
+  function choiceButtons(el, items, current, onPick){
+    el.innerHTML = "";
+    items.forEach(([id,label]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "choice"; b.textContent = label;
+      b.setAttribute("aria-pressed", String(id === current));
+      b.addEventListener("click", () => onPick(id));
+      el.appendChild(b);
+    });
+  }
+
+  function renderChoices(){
+    const spots = data ? data.spots.map(s => [s.id, SPOT_LABELS[s.id] || s.name]) : Object.entries(SPOT_LABELS);
+    choiceButtons($("spots"), spots, spotId, id => { spotId = id; save("bd.spot", id); openDay = null; renderAll(); });
+    choiceButtons($("profiles"), Object.entries(profiles).map(([id,p]) => [id,p.name]), profileId,
+      id => { profileId = id; save("bd.profile", id); renderAll(); });
+  }
+
+  // ---- Rating one day -------------------------------------------------------
+  function rateDay(spot, date, p){
+    const H = spot.hours, S = spot.sea;
+    const rows = [];
+    if (!H) return null;
+    for (let i = 0; i < H.time.length; i++){
+      const t = H.time[i];
+      if (t.slice(0,10) !== date) continue;
+      const hr = Number(t.slice(11,13));
+      if (hr < p.start || hr >= p.end) continue;
+      let wave = null;
+      if (S && S.time){ const j = S.time.indexOf(t); if (j >= 0) wave = S.wave[j]; }
+      rows.push({t, wind:H.wind[i], gust:H.gust[i], rain:H.rain[i], vis:H.visKm[i], temp:H.temp[i], dir:H.dir[i], wave});
+    }
+    if (!rows.length) return null;
+    const max = k => Math.max(...rows.map(r => r[k]).filter(v => v != null));
+    const min = k => Math.min(...rows.map(r => r[k]).filter(v => v != null));
+    // Round first so the check matches the numbers people see on screen.
+    const w = Math.round(max("wind")), g = Math.round(max("gust")), r = Math.round(max("rain")), v = min("vis");
+    const waves = rows.map(x => x.wave).filter(x => x != null);
+    const wave = waves.length ? Math.max(...waves) : null;
+
+    const over = [], severe = [];
+    if (w > p.maxWind){ over.push("wind up to " + Math.round(w) + " km/h"); if (w > p.maxWind*1.2) severe.push(1); }
+    if (g > p.maxGust){ over.push("gusts up to " + Math.round(g) + " km/h"); if (g > p.maxGust*1.2) severe.push(1); }
+    if (r > p.maxRain){ over.push(Math.round(r) + "% chance of rain"); if (r > p.maxRain + 30) severe.push(1); }
+    if (isFinite(v) && v < p.minVis){ over.push("mist (visibility " + v + " km)"); if (v < p.minVis/2) severe.push(1); }
+    if (wave != null && wave > p.maxWave){ over.push("waves up to " + wave + " m"); severe.push(1); }
+
+    let status, why;
+    if (severe.length){ status = "red"; why = "Too much: " + over.join(", ") + "."; }
+    else if (over.length){ status = "orange"; why = "Just over your limit: " + over.join(", ") + ". Look again closer to the day."; }
+    else if (wave == null){ status = "orange"; why = "Weather looks fine (wind " + Math.round(w) + " km/h) but there is no wave forecast. Check the sea yourself."; }
+    else { status = "green"; why = "Wind up to " + Math.round(w) + " km/h, gusts " + Math.round(g) + ", waves " + wave + " m, rain chance " + Math.round(r) + "%."; }
+    return {status, why, rows, calm: w + g/2 + (wave||0)*10};
+  }
+
+  // ---- Week list ------------------------------------------------------------
+  function renderDays(){
+    const box = $("days");
+    if (!data){ return; }
+    const spot = data.spots.find(s => s.id === spotId) || data.spots[0];
+    const p = profiles[profileId] || profiles.family;
+    const dates = [...new Set((spot.hours ? spot.hours.time : []).map(t => t.slice(0,10)))];
+    const todayIso = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const rated = dates.filter(d => d >= todayIso).map(d => ({date:d, r:rateDay(spot, d, p)})).filter(x => x.r);
+
+    const greens = rated.filter(x => x.r.status === "green");
+    const best = greens.length ? greens.reduce((a,b) => a.r.calm <= b.r.calm ? a : b).date : null;
+
+    box.innerHTML = "";
+    if (!rated.length){ box.innerHTML = "<p>No forecast available for this spot right now. Please try again later.</p>"; return; }
+    const label = {green:"✅ Good day", orange:"⚠️ Check first", red:"❌ Stay home"};
+
+    rated.forEach(({date, r}) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "day " + r.status;
+      btn.setAttribute("aria-expanded", String(openDay === date));
+      btn.innerHTML = '<span class="when">' + fmtDate(date) + (date === best ? ' <span class="star" title="Calmest day">★</span>' : "") + "</span>" +
+                      '<span class="badge">' + label[r.status] + "</span>" +
+                      '<span class="why">' + r.why + "</span>";
+      btn.addEventListener("click", () => { openDay = openDay === date ? null : date; renderDays(); });
+      box.appendChild(btn);
+      if (openDay === date) box.appendChild(detailFor(spot, date, r, p));
+    });
+  }
+
+  function detailFor(spot, date, r, p){
+    const d = document.createElement("div");
+    d.className = "detail";
+    let facts = [];
+    if (spot.sun){ const i = spot.sun.date.indexOf(date); if (i >= 0) facts.push("🌅 Sunrise " + hhmm(spot.sun.rise[i]), "🌇 Sunset " + hhmm(spot.sun.set[i])); }
+    const tides = (spot.tides || []).filter(t => t.time.slice(0,10) === date);
+    if (tides.length) facts.push("🌊 Tides: " + tides.map(t => (t.type === "high" ? "High " : "Low ") + hhmm(t.time)).join(", "));
+    const bad = (v, lim, lower) => v != null && (lower ? v < lim : v > lim) ? ' class="bad"' : "";
+    let html = '<div class="facts">' + facts.map(f => "<span>" + f + "</span>").join("") + "</div>";
+    html += "<table><thead><tr><th>Time</th><th>Wind<br>km/h</th><th>Gusts<br>km/h</th><th>Rain<br>%</th><th>Waves<br>m</th><th>Temp<br>°C</th></tr></thead><tbody>";
+    r.rows.forEach(x => {
+      html += "<tr><td>" + hhmm(x.t) + "</td>" +
+              "<td" + bad(x.wind, p.maxWind) + ">" + Math.round(x.wind) + "</td>" +
+              "<td" + bad(x.gust, p.maxGust) + ">" + Math.round(x.gust) + "</td>" +
+              "<td" + bad(x.rain, p.maxRain) + ">" + (x.rain == null ? "–" : Math.round(x.rain)) + "</td>" +
+              "<td" + bad(x.wave, p.maxWave) + ">" + (x.wave == null ? "–" : x.wave) + "</td>" +
+              "<td>" + (x.temp == null ? "–" : Math.round(x.temp)) + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    d.innerHTML = html;
+    return d;
+  }
+
+  // ---- Limits ---------------------------------------------------------------
+  function renderLimits(){
+    const p = profiles[profileId];
+    const box = $("limits");
+    box.innerHTML = "<p><b>Limits for: " + p.name + "</b></p>";
+    LIMIT_FIELDS.forEach(f => {
+      const row = document.createElement("div");
+      row.className = "lim";
+      const fmt = v => (f.step < 1 ? v.toFixed(1) : v) + " " + f.unit;
+      row.innerHTML = "<span>" + f.label + "</span>";
+      const st = document.createElement("div"); st.className = "stepper";
+      const minus = document.createElement("button"); minus.className = "btn"; minus.type = "button"; minus.textContent = "−"; minus.setAttribute("aria-label", "Less " + f.label);
+      const val = document.createElement("span"); val.className = "val"; val.textContent = fmt(p[f.k]); val.setAttribute("aria-live","polite");
+      const plus = document.createElement("button"); plus.className = "btn"; plus.type = "button"; plus.textContent = "+"; plus.setAttribute("aria-label", "More " + f.label);
+      const change = dir => {
+        let v = Math.round((p[f.k] + dir*f.step)*10)/10;
+        v = Math.min(f.max, Math.max(f.min, v));
+        if (f.k === "start" && v >= p.end) return;
+        if (f.k === "end" && v <= p.start) return;
+        p[f.k] = v; val.textContent = fmt(v); save("bd.profiles", profiles); renderDays();
+      };
+      minus.addEventListener("click", () => change(-1));
+      plus.addEventListener("click", () => change(1));
+      st.append(minus, val, plus); row.appendChild(st); box.appendChild(row);
+    });
+  }
+
+  $("reset").addEventListener("click", () => {
+    profiles[profileId] = JSON.parse(JSON.stringify(DEFAULT_PROFILES[profileId]));
+    save("bd.profiles", profiles); renderAll();
+  });
+
+  function renderNotice(){
+    const n = $("notice");
+    if (!data){ n.innerHTML = ""; return; }
+    $("updated").textContent = "Forecast updated: " + fmtStamp(data.generated) + ".";
+    const ageH = (Date.now() - new Date(data.generated + ":00+02:00").getTime()) / 3600000;
+    if (data.sample) n.innerHTML = '<div class="note warn"><b>Sample data.</b> This is a test forecast. The real forecast appears automatically within a few hours.</div>';
+    else if (ageH > 12) n.innerHTML = '<div class="note warn"><b>This forecast is ' + Math.round(ageH) + ' hours old.</b> The update may be delayed. Please check another source too.</div>';
+    else n.innerHTML = "";
+  }
+
+  function renderAll(){ renderChoices(); renderNotice(); renderDays(); renderLimits(); }
+
+  renderChoices(); renderLimits();
+  fetch("data/forecast.json?t=" + Math.floor(Date.now()/600000), {cache:"no-store"})
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j => { data = j; if (!data.spots.some(s => s.id === spotId)) spotId = data.spots[0].id; renderAll(); })
+    .catch(() => { $("days").innerHTML = "<p>Sorry, the forecast could not be loaded. Please check your internet connection and try again.</p>"; });
+})();
+</script>
+</body>
+</html>
