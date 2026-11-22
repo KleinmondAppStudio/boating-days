@@ -146,7 +146,7 @@
 
 <footer>
   <div class="wrap">
-    <p>Made with care in Kleinmond by <b>Kleinmond App Studio</b>. Forecast data from Open-Meteo (open-meteo.com); tides from Stormglass. Updated every 3 hours.</p>
+    <p>Made with care in Kleinmond by <b>Kleinmond App Studio</b>. Weather from Open-Meteo (open-meteo.com) or MET Norway / YR (CC BY 4.0); waves from Open-Meteo; tides from Stormglass. Updated every 3 hours.</p>
     <div class="links">
       <a class="pill" href="https://www.facebook.com/KleinmondAppStudio">Follow us on Facebook</a>
       <a class="pill alt" href="https://play.google.com/store/apps/developer?id=Mossie">More of our apps on Google Play</a>
@@ -231,29 +231,37 @@
       if (hr < p.start || hr >= p.end) continue;
       let wave = null;
       if (S && S.time){ const j = S.time.indexOf(t); if (j >= 0) wave = S.wave[j]; }
-      rows.push({t, wind:H.wind[i], gust:H.gust[i], rain:H.rain[i], vis:H.visKm[i], temp:H.temp[i], dir:H.dir[i], wave});
+      rows.push({t, wind:H.wind[i], gust:H.gust[i], rain:H.rain[i], mm:(H.rainMm||[])[i], vis:H.visKm[i], temp:H.temp[i], dir:H.dir[i], wave});
     }
     if (!rows.length) return null;
-    const max = k => Math.max(...rows.map(r => r[k]).filter(v => v != null));
-    const min = k => Math.min(...rows.map(r => r[k]).filter(v => v != null));
+    const vals = k => rows.map(r => r[k]).filter(v => v != null);
+    const max = k => { const a = vals(k); return a.length ? Math.max(...a) : null; };
+    const min = k => { const a = vals(k); return a.length ? Math.min(...a) : null; };
+    const rnd = x => x == null ? null : Math.round(x);
     // Round first so the check matches the numbers people see on screen.
-    const w = Math.round(max("wind")), g = Math.round(max("gust")), r = Math.round(max("rain")), v = min("vis");
+    const w = rnd(max("wind")), g = rnd(max("gust")), r = rnd(max("rain")), v = min("vis"), mm = max("mm");
     const waves = rows.map(x => x.wave).filter(x => x != null);
     const wave = waves.length ? Math.max(...waves) : null;
 
     const over = [], severe = [];
     if (w > p.maxWind){ over.push("wind up to " + Math.round(w) + " km/h"); if (w > p.maxWind*1.2) severe.push(1); }
-    if (g > p.maxGust){ over.push("gusts up to " + Math.round(g) + " km/h"); if (g > p.maxGust*1.2) severe.push(1); }
-    if (r > p.maxRain){ over.push(Math.round(r) + "% chance of rain"); if (r > p.maxRain + 30) severe.push(1); }
-    if (isFinite(v) && v < p.minVis){ over.push("mist (visibility " + v + " km)"); if (v < p.minVis/2) severe.push(1); }
+    if (g != null && g > p.maxGust){ over.push("gusts up to " + Math.round(g) + " km/h"); if (g > p.maxGust*1.2) severe.push(1); }
+    if (r != null && r > p.maxRain){ over.push(r + "% chance of rain"); if (r > p.maxRain + 30) severe.push(1); }
+    if (r == null && mm != null && mm >= 0.5 && p.maxRain < 50){ over.push("rain expected (" + mm + " mm an hour)"); if (mm >= 2) severe.push(1); }
+    if (v != null && v < p.minVis){ over.push("mist (visibility " + v + " km)"); if (v < p.minVis/2) severe.push(1); }
     if (wave != null && wave > p.maxWave){ over.push("waves up to " + wave + " m"); severe.push(1); }
 
     let status, why;
     if (severe.length){ status = "red"; why = "Too much: " + over.join(", ") + "."; }
     else if (over.length){ status = "orange"; why = "Just over your limit: " + over.join(", ") + ". Look again closer to the day."; }
     else if (wave == null){ status = "orange"; why = "Weather looks fine (wind " + Math.round(w) + " km/h) but there is no wave forecast. Check the sea yourself."; }
-    else { status = "green"; why = "Wind up to " + Math.round(w) + " km/h, gusts " + Math.round(g) + ", waves " + wave + " m, rain chance " + Math.round(r) + "%."; }
-    return {status, why, rows, calm: w + g/2 + (wave||0)*10};
+    else {
+      status = "green";
+      why = "Wind up to " + w + " km/h" + (g != null ? ", gusts " + g : "") + ", waves " + wave + " m" +
+            (r != null ? ", rain chance " + r + "%" : (mm ? ", rain " + mm + " mm" : ", no rain expected")) + ".";
+    }
+    if (g == null) why += " (No gust forecast – allow for stronger gusts.)";
+    return {status, why, rows, calm: w + (g == null ? w : g)/2 + (wave||0)*10};
   }
 
   // ---- Week list ------------------------------------------------------------
@@ -296,12 +304,12 @@
     if (tides.length) facts.push("🌊 Tides: " + tides.map(t => (t.type === "high" ? "High " : "Low ") + hhmm(t.time)).join(", "));
     const bad = (v, lim, lower) => v != null && (lower ? v < lim : v > lim) ? ' class="bad"' : "";
     let html = '<div class="facts">' + facts.map(f => "<span>" + f + "</span>").join("") + "</div>";
-    html += "<table><thead><tr><th>Time</th><th>Wind<br>km/h</th><th>Gusts<br>km/h</th><th>Rain<br>%</th><th>Waves<br>m</th><th>Temp<br>°C</th></tr></thead><tbody>";
+    html += `<table><thead><tr><th>Time</th><th>Wind<br>km/h</th><th>Gusts<br>km/h</th><th>Rain<br>${spot.hours.rain.some(x => x != null) ? "%" : "mm"}</th><th>Waves<br>m</th><th>Temp<br>°C</th></tr></thead><tbody>`;
     r.rows.forEach(x => {
       html += "<tr><td>" + hhmm(x.t) + "</td>" +
               "<td" + bad(x.wind, p.maxWind) + ">" + Math.round(x.wind) + "</td>" +
-              "<td" + bad(x.gust, p.maxGust) + ">" + Math.round(x.gust) + "</td>" +
-              "<td" + bad(x.rain, p.maxRain) + ">" + (x.rain == null ? "–" : Math.round(x.rain)) + "</td>" +
+              "<td" + bad(x.gust, p.maxGust) + ">" + (x.gust == null ? "–" : Math.round(x.gust)) + "</td>" +
+              (x.rain != null ? "<td" + bad(x.rain, p.maxRain) + ">" + Math.round(x.rain) + "</td>" : "<td>" + (x.mm == null ? "–" : x.mm) + "</td>") +
               "<td" + bad(x.wave, p.maxWave) + ">" + (x.wave == null ? "–" : x.wave) + "</td>" +
               "<td>" + (x.temp == null ? "–" : Math.round(x.temp)) + "</td></tr>";
     });
@@ -345,7 +353,8 @@
   function renderNotice(){
     const n = $("notice");
     if (!data){ n.innerHTML = ""; return; }
-    $("updated").textContent = "Forecast updated: " + fmtStamp(data.generated) + ".";
+    const sp = data.spots.find(s => s.id === spotId) || data.spots[0];
+    $("updated").textContent = "Forecast updated: " + fmtStamp(data.generated) + "." + (sp && sp.source ? " Weather from " + sp.source + ", waves from Open-Meteo." : "");
     const ageH = (Date.now() - new Date(data.generated + ":00+02:00").getTime()) / 3600000;
     if (data.sample) n.innerHTML = '<div class="note warn"><b>Sample data.</b> This is a test forecast. The real forecast appears automatically within a few hours.</div>';
     else if (ageH > 12) n.innerHTML = '<div class="note warn"><b>This forecast is ' + Math.round(ageH) + ' hours old.</b> The update may be delayed. Please check another source too.</div>';
