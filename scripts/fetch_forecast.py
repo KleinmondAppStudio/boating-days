@@ -8,7 +8,9 @@ so the weather services are asked 4 times per run, no matter how many
 people use Boating Days.
 
 Sources
-  * Open-Meteo weather + marine: free, no key, every run.
+  * Weather: Open-Meteo (full detail). GitHub's shared servers sometimes hit
+    Open-Meteo's daily limit, so MET Norway (YR) is used as a fallback.
+  * Waves: Open-Meteo Marine, free, no key.
   * Stormglass tides: 10 free calls a day, so it is asked only once a day
     (4 spots = 4 calls). Needs the STORMGLASS_KEY secret on GitHub.
     Without the secret, tides are simply left out.
@@ -54,7 +56,8 @@ def get_json(url, headers=None, timeout=25, attempts=3):
         except Exception as e:
             last = f"{type(e).__name__}: {e}"
         print(f"  attempt {n} failed for {url.split('?')[0]} -> {last}", file=sys.stderr)
-        time.sleep(5 * n)
+        if n < attempts:
+            time.sleep(5 * n)
     raise RuntimeError(last)
 
 
@@ -69,7 +72,34 @@ def weather(spot):
         "timezone": TZ_NAME,
         "forecast_days": DAYS,
     })
-    return get_json("https://api.open-meteo.com/v1/forecast?" + q)
+    return get_json("https://api.open-meteo.com/v1/forecast?" + q, attempts=1)
+
+
+def met_norway(spot):
+    """Fallback: MET Norway (the service behind YR). Free, identifies us by app name.
+    For South Africa it gives wind, temperature, rain amount and fog - no gusts
+    and no rain chance, so those are left empty (the page says so)."""
+    q = urllib.parse.urlencode({"lat": round(spot["lat"], 4), "lon": round(spot["lng"], 4)})
+    data = get_json("https://api.met.no/weatherapi/locationforecast/2.0/complete?" + q,
+                    headers={"User-Agent": "KleinmondAppStudio-BoatingDays/1.0 github.com/KleinmondAppStudio"})
+    hours = {"time": [], "temp": [], "wind": [], "gust": [], "dir": [], "rain": [], "rainMm": [], "visKm": []}
+    for ts in data["properties"]["timeseries"]:
+        t = datetime.fromisoformat(ts["time"].replace("Z", "+00:00")).astimezone(SAST)
+        d = ts["data"]["instant"]["details"]
+        nxt = ts["data"].get("next_1_hours") or ts["data"].get("next_6_hours") or {}
+        mm = (nxt.get("details") or {}).get("precipitation_amount")
+        if mm is not None and "next_1_hours" not in ts["data"]:
+            mm = round(mm / 6, 1)  # 6-hour total spread per hour
+        fog = d.get("fog_area_fraction")
+        hours["time"].append(t.strftime("%Y-%m-%dT%H:00"))
+        hours["temp"].append(round(d.get("air_temperature", 0), 1))
+        hours["wind"].append(round(d.get("wind_speed", 0) * 3.6, 1))  # m/s -> km/h
+        hours["gust"].append(None)
+        hours["dir"].append(round(d.get("wind_from_direction", 0)))
+        hours["rain"].append(None)
+        hours["rainMm"].append(mm)
+        hours["visKm"].append(None if fog is None else (1.0 if fog >= 50 else 20.0))
+    return hours
 
 
 def marine(spot):
@@ -142,10 +172,18 @@ def main():
                 "visKm": [None if v is None else round(v / 1000, 1) for v in h["visibility"]],
             }
             entry["sun"] = {"date": w["daily"]["time"], "rise": w["daily"]["sunrise"], "set": w["daily"]["sunset"]}
-        except Exception as e:  # keep the last good data rather than failing
-            problems.append(f"weather {spot['id']}: {e}")
-            entry["hours"] = prev.get("hours")
-            entry["sun"] = prev.get("sun")
+            entry["source"] = "Open-Meteo"
+        except Exception as e:
+            problems.append(f"open-meteo {spot['id']}: {e}")
+            try:
+                entry["hours"] = met_norway(spot)
+                entry["source"] = "MET Norway (YR)"
+                entry["sun"] = prev.get("sun")
+            except Exception as e2:  # keep the last good data rather than failing
+                problems.append(f"met-norway {spot['id']}: {e2}")
+                entry["hours"] = prev.get("hours")
+                entry["sun"] = prev.get("sun")
+                entry["source"] = prev.get("source")
         try:
             m = marine(spot)["hourly"]
             entry["sea"] = {
